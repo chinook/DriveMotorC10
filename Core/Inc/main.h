@@ -42,6 +42,7 @@ extern "C" {
 
 /* Exported constants --------------------------------------------------------*/
 /* USER CODE BEGIN EC */
+uint8_t tick_1ms;
 
 /* USER CODE END EC */
 
@@ -62,8 +63,8 @@ void Error_Handler(void);
 #define nSTALL2_GPIO_Port GPIOE
 #define nFAULT2_Pin GPIO_PIN_4
 #define nFAULT2_GPIO_Port GPIOE
-#define SPI_SC2_Pin GPIO_PIN_5
-#define SPI_SC2_GPIO_Port GPIOE
+#define SPI_CS2_Pin GPIO_PIN_5
+#define SPI_CS2_GPIO_Port GPIOE
 #define BIN2_2_Pin GPIO_PIN_0
 #define BIN2_2_GPIO_Port GPIOC
 #define BIN1_2_Pin GPIO_PIN_1
@@ -92,8 +93,8 @@ void Error_Handler(void);
 #define BIN2_1_GPIO_Port GPIOE
 #define BIN1_1_Pin GPIO_PIN_11
 #define BIN1_1_GPIO_Port GPIOE
-#define FIR1_Pin GPIO_PIN_12
-#define FIR1_GPIO_Port GPIOE
+#define DIR1_Pin GPIO_PIN_12
+#define DIR1_GPIO_Port GPIOE
 #define STEP1_Pin GPIO_PIN_13
 #define STEP1_GPIO_Port GPIOE
 #define RESET1_Pin GPIO_PIN_14

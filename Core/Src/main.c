@@ -23,6 +23,11 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+#include "can.h"
+#include "motor.h"
+
+#include <assert.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -48,6 +53,8 @@ I2C_HandleTypeDef hi2c3;
 
 SPI_HandleTypeDef hspi1;
 
+TIM_HandleTypeDef htim3;
+
 UART_HandleTypeDef huart4;
 UART_HandleTypeDef huart5;
 
@@ -65,7 +72,9 @@ static void MX_I2C3_Init(void);
 static void MX_SPI1_Init(void);
 static void MX_UART4_Init(void);
 static void MX_UART5_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
+
 
 /* USER CODE END PFP */
 
@@ -109,14 +118,41 @@ int main(void)
   MX_SPI1_Init();
   MX_UART4_Init();
   MX_UART5_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
 
+  if (InitDrivesMoteurs(&hspi1) != 0)
+  {
+	  assert(0);
+  }
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
+  uint32_t time_counter = 0;
+
+  uint32_t last_time_led = 0;
   while (1)
   {
+	if (tick_1ms)
+	{
+		++time_counter;
+		__disable_irq();
+		tick_1ms = 0;
+		__enable_irq();
+	}
+
+	//HAL_Delay(250);
+	if ((time_counter - last_time_led) >= 250)
+	{
+		// Reset the last time counter
+		last_time_led = time_counter;
+
+		static GPIO_PinState led_toggle = 0;
+		HAL_GPIO_WritePin(LED1_GPIO_Port, LED1_Pin, led_toggle);
+		HAL_GPIO_WritePin(LED2_GPIO_Port, LED2_Pin, !led_toggle);
+		led_toggle ^= 1;
+	}
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -195,6 +231,34 @@ static void MX_CAN1_Init(void)
     Error_Handler();
   }
   /* USER CODE BEGIN CAN1_Init 2 */
+	CAN_FilterTypeDef CAN_FilterType;
+	CAN_FilterType.FilterBank = 0;				// Filter group (0-13)
+	CAN_FilterType.SlaveStartFilterBank = 14; 	// Start from filter group (0-27)
+	CAN_FilterType.FilterIdHigh = 0x0000;			// ID (high) to be filtered [0x0000, 0xFFFF]
+	CAN_FilterType.FilterIdLow = 0x0000;			// ID (low)  to be filtered [0x0000, 0xFFFF]
+	CAN_FilterType.FilterMaskIdHigh = 0xFFFF;		// The mask the filter must NOT match
+	CAN_FilterType.FilterMaskIdLow = 0xFFFF;		// The mask the filter must NOT match
+	CAN_FilterType.FilterFIFOAssignment = 0;		// Filter FIFO assignment (FIFO0, FIFO1)
+	CAN_FilterType.FilterMode = CAN_FILTERMODE_IDMASK;  	// Work in identifier mask bit mode
+	CAN_FilterType.FilterScale = CAN_FILTERSCALE_32BIT;	// The filter bit width, 32bits
+	CAN_FilterType.FilterActivation = ENABLE;		// Enable the filter
+
+	if(HAL_CAN_ConfigFilter(&hcan1, &CAN_FilterType) != HAL_OK)
+	{
+		Error_Handler();
+	}
+
+	// Open the interrupt channel for the FIFO buffer
+	if(HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING ) != HAL_OK)
+	{
+		Error_Handler();
+	}
+
+	// Start the CAN
+	if(HAL_CAN_Start(&hcan1) != HAL_OK)
+	{
+		Error_Handler();
+	}
 
   /* USER CODE END CAN1_Init 2 */
 
@@ -233,6 +297,34 @@ static void MX_CAN2_Init(void)
   }
   /* USER CODE BEGIN CAN2_Init 2 */
 
+	CAN_FilterTypeDef CAN_FilterType;
+  	CAN_FilterType.FilterBank = 0;				// Filter group (0-13)
+  	CAN_FilterType.SlaveStartFilterBank = 14; 	// Start from filter group (0-27)
+  	CAN_FilterType.FilterIdHigh = 0x0000;			// ID (high) to be filtered [0x0000, 0xFFFF]
+  	CAN_FilterType.FilterIdLow = 0x0000;			// ID (low)  to be filtered [0x0000, 0xFFFF]
+  	CAN_FilterType.FilterMaskIdHigh = 0xFFFF;		// The mask the filter must NOT match
+  	CAN_FilterType.FilterMaskIdLow = 0xFFFF;		// The mask the filter must NOT match
+  	CAN_FilterType.FilterFIFOAssignment = 0;		// Filter FIFO assignment (FIFO0, FIFO1)
+  	CAN_FilterType.FilterMode = CAN_FILTERMODE_IDMASK;  	// Work in identifier mask bit mode
+  	CAN_FilterType.FilterScale = CAN_FILTERSCALE_32BIT;	// The filter bit width, 32bits
+  	CAN_FilterType.FilterActivation = ENABLE;		// Enable the filter
+
+  	if(HAL_CAN_ConfigFilter(&hcan2, &CAN_FilterType) != HAL_OK)
+  	{
+  		Error_Handler();
+  	}
+
+  	// Open the interrupt channel for the FIFO buffer
+  	if(HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO1_MSG_PENDING ) != HAL_OK)
+  	{
+  		Error_Handler();
+  	}
+
+  	// Start the CAN
+  	if(HAL_CAN_Start(&hcan2) != HAL_OK)
+  	{
+  		Error_Handler();
+  	}
   /* USER CODE END CAN2_Init 2 */
 
 }
@@ -344,6 +436,54 @@ static void MX_SPI1_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 8;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 2000;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+  if (HAL_TIM_Base_Start_IT(&htim3) != HAL_OK) {
+	  Error_Handler();
+  }
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * @brief UART4 Initialization Function
   * @param None
   * @retval None
@@ -426,8 +566,8 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, SPI_SC2_Pin|SPI_CS1_Pin|BIN2_1_Pin|BIN1_1_Pin
-                          |FIR1_Pin|STEP1_Pin|RESET1_Pin|nSLEEP1_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, SPI_CS2_Pin|SPI_CS1_Pin|BIN2_1_Pin|BIN1_1_Pin
+                          |DIR1_Pin|STEP1_Pin|RESET1_Pin|nSLEEP1_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, BIN2_2_Pin|BIN1_2_Pin|DIR2_Pin, GPIO_PIN_RESET);
@@ -445,10 +585,10 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : SPI_SC2_Pin SPI_CS1_Pin BIN2_1_Pin BIN1_1_Pin
-                           FIR1_Pin STEP1_Pin RESET1_Pin nSLEEP1_Pin */
-  GPIO_InitStruct.Pin = SPI_SC2_Pin|SPI_CS1_Pin|BIN2_1_Pin|BIN1_1_Pin
-                          |FIR1_Pin|STEP1_Pin|RESET1_Pin|nSLEEP1_Pin;
+  /*Configure GPIO pins : SPI_CS2_Pin SPI_CS1_Pin BIN2_1_Pin BIN1_1_Pin
+                           DIR1_Pin STEP1_Pin RESET1_Pin nSLEEP1_Pin */
+  GPIO_InitStruct.Pin = SPI_CS2_Pin|SPI_CS1_Pin|BIN2_1_Pin|BIN1_1_Pin
+                          |DIR1_Pin|STEP1_Pin|RESET1_Pin|nSLEEP1_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
